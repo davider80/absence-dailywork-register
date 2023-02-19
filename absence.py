@@ -24,19 +24,46 @@ def sendwork(day, id, key, typeofwork, starthour='08:00', endhour='16:00'):
     print("Fail connecting to: %s, with id: %s and key: %s" % (ABSENCE_URL, id, key))
     exit(1)
 
+  response = requests.get("%s/api/v2/users/%s" % (ABSENCE_URL, id), auth=hawk_auth)
+  if response.status_code != 200:
+    print("Fail connecting to: %s, with id: %s and key: %s" % (ABSENCE_URL, id, key))
+    exit(1)
+
   headers = {
       'Content-Type': "application/json",
   }
-  data = {
-    "userId": "%s" % id,
-    "start": "%sT%s:00.000Z" % (day, starthour),
-    "end": "%sT%s:00.000Z" % (day, endhour),
-    "timezoneName": "CET",
-    "timezone": "+0000",
-    "type": "%s" % typeofwork
+  
+
+  #Check if an absence exists that day
+  data_get_absences = {
+    "skip": 0,
+    "limit": 50,
+    "filter": {
+      "assignedToId": "%s" % id,
+      "start": {"$lte" : "%sT00:00:00.000Z" % (day)},
+      "end": {"$gte": "%sT00:00:00.000Z" % (day)}, 
+    }
   }
 
-  resp = requests.post("%s/api/v2/timespans/create" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data), headers=headers)
+  resp = requests.post("%s/api/v2/absences" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data_get_absences), headers=headers)
+
+  absences = json.loads(resp.text)
+
+  if(absences["count"] == 0):
+
+    data_create_entry = {
+      "userId": "%s" % id,
+      "start": "%sT%s:00.000Z" % (day, starthour),
+      "end": "%sT%s:00.000Z" % (day, endhour),
+      "timezoneName": "CET",
+      "timezone": "+0000",
+      "type": "%s" % typeofwork
+    }
+
+    resp = requests.post("%s/api/v2/timespans/create" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data_create_entry), headers=headers)
+
+  else:
+    print(day+": skipped because of holiday")
 
 def previous_week_range(date):
     start_date = date + datetime.timedelta(-date.weekday(), weeks=-1)
@@ -104,14 +131,19 @@ def main():
   if "file" in excludedDays:
     excludedDays = data['skipdays']
 
+  bankHolidays = data['bankholidays']
+
   for i in range(5):
-      if daysofweek[i] not in excludedDays:
-       sendwork(day="%s" % (obj_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d'),
-              id=data['id'],
-              key=data['key'],
-              typeofwork=data['typeofwork'],
-              starthour=str(data['starthour']),
-              endhour=str(data['endhour']))
+      if (obj_date + datetime.timedelta(days=i)).strftime('%d.%m.%Y') not in bankHolidays:
+        if daysofweek[i] not in excludedDays:
+          sendwork(day="%s" % (obj_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d'),
+                 id=data['id'],
+                 key=data['key'],
+                 typeofwork=data['typeofwork'],
+                 starthour=str(data['starthour']),
+                 endhour=str(data['endhour']))
+      else:
+        print((obj_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d')+": skipped because of bank holiday")
 
 if __name__ == '__main__':
     main()
