@@ -53,6 +53,7 @@ Fill in daily work in Absence.io. It is always filling the whole week before as 
                endhour: Hour string to fill in as your end hour. Format: 'XX:YY'
                typeofwork: Type of daily register. Allowed value: work
                skipdays: List of the days to be excluded. Format: [Monday,Wednesday]
+               bankholidays: List of date to be excluded. Format: dd.mm.YYYY
 
 
 optional arguments:
