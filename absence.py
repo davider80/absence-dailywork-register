@@ -4,6 +4,7 @@
 import requests
 import json
 import datetime
+import pandas as pd
 import argparse, textwrap
 import yaml
 from requests_hawk import HawkAuth
@@ -60,14 +61,29 @@ def sendwork(day, id, key, typeofwork, starthour='08:00', endhour='16:00'):
       "type": "%s" % typeofwork
     }
 
-    resp = requests.post("%s/api/v2/timespans/create" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data_create_entry), headers=headers)
+    print(day+": write work time entry")
+    #resp = requests.post("%s/api/v2/timespans/create" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data_create_entry), headers=headers)
 
   else:
     print(day+": skipped because of holiday")
 
-def previous_week_range(date):
+def week_array(date):
     start_date = date + datetime.timedelta(-date.weekday(), weeks=-1)
-    return str(start_date)
+    end_date = start_date+datetime.timedelta(days=5)
+    return pd.date_range(start_date, end_date , freq='B')
+
+def year_array(date):
+    start_date = date
+    end_date = datetime.date(date.year,12,31)
+
+    if start_date > datetime.date.today():
+      start_date = datetime.date.today()
+
+    if end_date > datetime.date.today():
+      end_date = datetime.date.today()
+
+    return pd.date_range(start_date, end_date, freq='B')
+
 
 def parse_arguments():
     """Parse the commandline arguments"""
@@ -99,7 +115,13 @@ def parse_arguments():
         '-w',
         dest='week',
         action="store_true",
-        help='Used to fill in the whole previus week. Use to be croned in your computer')
+        help='Used to fill in the whole previous week. Use to be croned in your computer')
+    group.add_argument(
+        '--year',
+        '-y',
+        dest='year',
+        help='Used to fill in the year, starting from day with this format: YYYY-MM-dd. Use with caution',
+        type=str)
     parser.add_argument(
       "--exclusion",
       "-e",
@@ -117,33 +139,35 @@ def main():
   args = parse_arguments()
   data = readdata(DATA_FILE)
 
-  if args.week:
-    today_obj = datetime.date.today()
-    monday_ago = previous_week_range(datetime.date(today_obj.year, today_obj.month, today_obj.day))
-  else:
-    monday_ago = previous_week_range(datetime.date(int(args.day[:4]), int(args.day[5:7]), int(args.day[8:])))
+  if args.year:
+    date_range = year_array(datetime.date(int(args.year[:4]), int(args.year[5:7]), int(args.year[8:])))
 
-  obj_date = datetime.datetime.strptime(monday_ago, "%Y-%m-%d")
+  else:
+    if args.week:
+      today_obj = datetime.date.today()
+      date_range = week_array(today_obj)
+
+    else:
+      date_range = week_array(datetime.date(int(args.day[:4]), int(args.day[5:7]), int(args.day[8:])))
 
   excludedDays = Convert(args.exclusion)
   
-
   if "file" in excludedDays:
     excludedDays = data['skipdays']
 
   bankHolidays = data['bankholidays']
 
-  for i in range(5):
-      if (obj_date + datetime.timedelta(days=i)).strftime('%d.%m.%Y') not in bankHolidays:
-        if daysofweek[i] not in excludedDays:
-          sendwork(day="%s" % (obj_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d'),
+  for d in date_range:
+      if d.strftime('%d.%m.%Y') not in bankHolidays:
+        if d.strftime('%A') not in excludedDays:
+          sendwork(day="%s" % d.strftime('%Y-%m-%d'),
                  id=data['id'],
                  key=data['key'],
                  typeofwork=data['typeofwork'],
                  starthour=str(data['starthour']),
                  endhour=str(data['endhour']))
       else:
-        print((obj_date + datetime.timedelta(days=i)).strftime('%Y-%m-%d')+": skipped because of bank holiday")
+        print(d.strftime('%Y-%m-%d')+": skipped because of bank holiday")
 
 if __name__ == '__main__':
     main()
