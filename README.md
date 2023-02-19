@@ -60,6 +60,7 @@ optional arguments:
   -h, --help            show this help message and exit
   --day DAY, -d DAY     Specify a date to fill the previous week of this day with this format: YYYY-MM-dd
   --week, -w            Used to fill in the whole previus week. Use to be croned in your computer
+  --year, -y            Specify a date to fill the rest of the year from this day with this format: YYYY-MM-dd. USE WITH CAUTION
   --exclusion EXCLUSION, -e EXCLUSION
                         Specify the days of the week that should not be filled
                                     Example: absence.py -w -e "Monday Friday"

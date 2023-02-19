@@ -62,7 +62,7 @@ def sendwork(day, id, key, typeofwork, starthour='08:00', endhour='16:00'):
     }
 
     print(day+": write work time entry")
-    #resp = requests.post("%s/api/v2/timespans/create" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data_create_entry), headers=headers)
+    resp = requests.post("%s/api/v2/timespans/create" % ABSENCE_URL, auth=hawk_auth ,data=json.dumps(data_create_entry), headers=headers)
 
   else:
     print(day+": skipped because of holiday")
